@@ -89,10 +89,7 @@ int mouse_init(void) {
 static unsigned char pkt[3];
 static int phase = 0;
 
-void mouse_irq(void) {
-    if (!(inb(0x64) & 0x20)) return; /* not aux data; leave for keyboard */
-    {
-        unsigned char b = inb(0x60);
+void mouse_feed(unsigned char b) {
     if (phase == 0 && !(b & 8)) return; /* resync: bit 3 always set */
     pkt[phase++] = b;
     if (phase < 3) return;
@@ -112,7 +109,11 @@ void mouse_irq(void) {
         if (my > 24) my = 24;
         mouse_draw();
     }
-    }
+}
+
+void mouse_irq(void) {
+    if (!(inb(0x64) & 0x20)) return; /* not aux data; leave for keyboard */
+    mouse_feed(inb(0x60));
 }
 
 int mouse_present(void) { return have_mouse; }

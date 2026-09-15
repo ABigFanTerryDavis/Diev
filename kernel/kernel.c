@@ -247,19 +247,29 @@ static char kbd_map(unsigned char sc, int shifted) {
 }
 
 /* Blocking read of one char. '\n' = Enter, '\b' = Backspace.
- * Skips PS/2 aux (mouse) bytes: those belong to the mouse driver. */
+ * Skips PS/2 aux (mouse) bytes, feeding them to the mouse machine so
+ * none are lost. Status+data read under cli: an IRQ between the two
+ * would steal/mix the byte (that was the phantom-typing bug). */
 static char kbd_getchar(void) {
     static int shift = 0;
     static int ext = 0;
     for (;;) {
+        unsigned char st, sc;
         while (!(inb(0x64) & 0x01)) {
             __asm__ volatile ("pause");
         }
-        if (inb(0x64) & 0x20) {
-            inb(0x60); /* aux byte: leave it to mouse_irq */
+        __asm__ volatile ("cli");
+        st = inb(0x64);
+        if (!(st & 1)) {
+            __asm__ volatile ("sti"); /* IRQ stole it; re-wait */
             continue;
         }
-        unsigned char sc = inb(0x60);
+        sc = inb(0x60);
+        __asm__ volatile ("sti");
+        if (st & 0x20) {
+            mouse_feed(sc);
+            continue;
+        }
         if (sc == 0xE0) { ext = 1; continue; }
         if (ext) {
             ext = 0;
@@ -295,15 +305,23 @@ char div_getkey(int *shift_state) {
     static int ext = 0;
     unsigned int spin = 0;
     for (;;) {
+        unsigned char st, sc;
         while (!(inb(0x64) & 0x01)) {
             __asm__ volatile ("pause");
             if (++spin > 500000) return 0;
         }
-        if (inb(0x64) & 0x20) {
-            inb(0x60); /* aux byte: leave it to mouse_irq */
+        __asm__ volatile ("cli");
+        st = inb(0x64);
+        if (!(st & 1)) {
+            __asm__ volatile ("sti"); /* IRQ stole it; re-wait */
             continue;
         }
-        unsigned char sc = inb(0x60);
+        sc = inb(0x60);
+        __asm__ volatile ("sti");
+        if (st & 0x20) {
+            mouse_feed(sc);
+            continue;
+        }
         if (sc == 0xE0) { ext = 1; continue; }
         if (ext) {
             ext = 0;

@@ -11,6 +11,8 @@
 int mouse_init(void);
 /* Called from irq_handler on vector 0x2C. Reads one packet byte. */
 void mouse_irq(void);
+/* Feed one aux byte into the packet machine (for bytes the IRQ missed). */
+void mouse_feed(unsigned char b);
 int mouse_present(void);
 int mouse_x(void);
 int mouse_y(void);
