@@ -1,13 +1,13 @@
-/* Diev OS - IDT + CPU exception handlers (32-bit protected mode).
- * Copyright (C) 2026 Diev contributors
+/* EOS OS - IDT + CPU exception handlers (32-bit protected mode).
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
  *
- * Routes CPU faults (vectors 0-31) to DIEV ERR E4 instead of triple-faulting.
+ * Routes CPU faults (vectors 0-31) to EOS ERR E4 instead of triple-faulting.
  * IRQs stay off (IF is clear); only exceptions are handled here.
  */
-#ifndef DIEV_IDT_H
-#define DIEV_IDT_H
+#ifndef EOS_IDT_H
+#define EOS_IDT_H
 
 #include <stdint.h>
 
@@ -21,6 +21,7 @@ typedef struct {
 
 void idt_install(void);
 void fault_handler(fault_regs_t *r); /* called from isr.asm, never returns */
+void irq_handler(fault_regs_t *r);   /* hardware IRQs 0x20-0x2F, returns */
 
 /* ISR entry points (defined in isr.asm). */
 extern void isr0(void);  extern void isr1(void);
@@ -39,5 +40,15 @@ extern void isr24(void); extern void isr25(void);
 extern void isr26(void); extern void isr27(void);
 extern void isr28(void); extern void isr29(void);
 extern void isr30(void); extern void isr31(void);
+
+/* IRQ stubs (defined in isr.asm, vectors 0x20-0x2F after PIC remap). */
+extern void irq0(void);  extern void irq1(void);
+extern void irq2(void);  extern void irq3(void);
+extern void irq4(void);  extern void irq5(void);
+extern void irq6(void);  extern void irq7(void);
+extern void irq8(void);  extern void irq9(void);
+extern void irq10(void); extern void irq11(void);
+extern void irq12(void); extern void irq13(void);
+extern void irq14(void); extern void irq15(void);
 
 #endif

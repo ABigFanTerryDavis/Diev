@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diev OS - minimal El Torito ISO9660 generator (no xorriso needed).
+"""EOS OS - minimal El Torito ISO9660 generator (no xorriso needed).
 
 Usage: mkiso.py <boot.bin> <kernel.bin> <license-file> <out.iso>
 
@@ -65,10 +65,10 @@ def main():
     # ^^^ bootloader copies 48 sectors to [0x1000..0x7000); bigger would
     # overwrite its own stack/code. Grow past this -> stage2 loader.
     lic = open(license_path, 'rb').read()
-    readme = (b'Diev OS v0.0.6 boot CD.\r\n'
+    readme = (b'EOS v0.0.8 boot CD.\r\n'
               b'Boot image: BOOT.BIN (El Torito, no emulation).\r\n'
               b'KERNEL.BIN: flat 32-bit kernel, loaded at 0x1000.\r\n'
-              b'Run: qemu-system-x86_64 -cdrom diev.iso -boot order=d\r\n')
+              b'Run: qemu-system-x86_64 -cdrom eos.iso -boot order=d\r\n')
 
     files = [
         (b'KERNEL.BIN;1', kernel),
@@ -111,8 +111,8 @@ def main():
     pvd[0] = 1
     pvd[1:6] = b'CD001'
     pvd[6] = 1
-    pvd[8:8 + 32] = b'DIEV_OS'.ljust(32)
-    pvd[40:40 + 32] = b'DIEV_OS'.ljust(32)
+    pvd[8:8 + 32] = b'EOS_OS'.ljust(32)
+    pvd[40:40 + 32] = b'EOS_OS'.ljust(32)
     pvd[80:88] = both32(total_sectors)
     pvd[120:124] = both16(1)   # vol set size
     pvd[124:128] = both16(1)   # vol seq number
@@ -148,7 +148,7 @@ def main():
     # validation entry
     cat[0] = 1       # header ID
     cat[1] = 0       # x86 platform
-    cat[4:4 + 24] = b'Diev OS'.ljust(24, b'\x00')
+    cat[4:4 + 24] = b'EOS OS'.ljust(24, b'\x00')
     s = sum(struct.unpack('<16H', bytes(cat[0:32])))
     cat[28:30] = struct.pack('<H', (-s) & 0xFFFF)
     cat[30] = 0x55
@@ -179,7 +179,7 @@ def main():
     img[path_lba_be * SECTOR:(path_lba_be + 1) * SECTOR] = pt_be
 
     open(out_path, 'wb').write(img)
-    print(f'diev.iso: {len(img)} bytes, {total_sectors} sectors, '
+    print(f'eos.iso: {len(img)} bytes, {total_sectors} sectors, '
           f'boot LBA {BOOT_IMG_LBA}, kernel {len(kernel)} bytes')
 
 

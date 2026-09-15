@@ -1,24 +1,27 @@
-/* Diev OS - Kernel v0.0.3 (32-bit, freestanding)
- * Copyright (C) 2026 Diev contributors
+/* EOS - Kernel (32-bit, freestanding)
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
- * Boot flow: bootloader prints "Diev loading..." via BIOS,
+ * Boot flow: bootloader prints "EOS loading..." via BIOS,
  * then this kernel prints "hello world!" via VGA and runs a tiny shell.
- * 5 defined errors, shown as DIEV ERR E1..E5, then halt.
+ * 5 defined errors, shown as EOS ERR E1..E5, then halt.
  */
 
 #include "kernel.h"
 #include "idt.h"
 #include "rmfs.h"
 #include "div.h"
+#include "eword.h"
+#include "mouse.h"
+#include "demo_prog.h"
 
 #define VGA_ADDR 0xB8000
 #define VGA_COLS 80
 #define VGA_ROWS 25
-#define DIEV_VER "Diev v0.0.6"
+#define EOS_VER "EOS v0.0.8"
 
 static volatile unsigned short *vga = (volatile unsigned short *)VGA_ADDR;
-static unsigned char cursor_row = 1; /* row 0 holds "Diev loading..." from bootloader */
+static unsigned char cursor_row = 1; /* row 0 holds "EOS loading..." from bootloader */
 static unsigned char cursor_col = 0;
 static unsigned char boot_drive = 0xFF; /* stashed by bootloader at 0x0500 */
 
@@ -122,25 +125,25 @@ static void vga_backspace(void) {
     vga_update_cursor();
 }
 
-/* diev_error_t lives in kernel.h; messages stay local. */
-static const char *diev_error_msg(diev_error_t code) {
+/* eos_error_t lives in kernel.h; messages stay local. */
+static const char *eos_error_msg(eos_error_t code) {
     switch (code) {
-        case DIEV_E1_DISK:      return "DIEV ERR E1: BOOT DISK READ FAIL";
-        case DIEV_E2_KERNEL:    return "DIEV ERR E2: KERNEL LOAD FAIL";
-        case DIEV_E3_VGA:       return "DIEV ERR E3: VGA FAULT";
-        case DIEV_E4_EXCEPTION: return "DIEV ERR E4: UNKNOWN EXCEPTION";
-        case DIEV_E5_HALT:      return "DIEV ERR E5: SYSTEM HALT FAULT";
-        default:                return "DIEV ERR E?: INVALID ERROR CODE";
+        case EOS_E1_DISK:      return "EOS ERR E1: BOOT DISK READ FAIL";
+        case EOS_E2_KERNEL:    return "EOS ERR E2: KERNEL LOAD FAIL";
+        case EOS_E3_VGA:       return "EOS ERR E3: VGA FAULT";
+        case EOS_E4_EXCEPTION: return "EOS ERR E4: UNKNOWN EXCEPTION";
+        case EOS_E5_HALT:      return "EOS ERR E5: SYSTEM HALT FAULT";
+        default:                return "EOS ERR E?: INVALID ERROR CODE";
     }
 }
 
 /* Panic: red error on VGA, then halt forever. No keyboard escape. */
-void diev_panic(diev_error_t code) {
+void eos_panic(eos_error_t code) {
     cursor_row = VGA_ROWS - 2;
     cursor_col = 0;
-    vga_print(diev_error_msg(code), C_RED_ON_BLACK);
+    vga_print(eos_error_msg(code), C_RED_ON_BLACK);
     vga_putchar('\n', C_RED_ON_BLACK);
-    vga_print("Diev halted.", C_RED_ON_BLACK);
+    vga_print("EOS halted.", C_RED_ON_BLACK);
     for (;;) {
         __asm__ volatile ("cli; hlt");
     }
@@ -182,7 +185,7 @@ static const char kbd_normal[128] = {
     [0x28]='\'', [0x29]='`', [0x2B]='\\',
     [0x2C]='z', [0x2D]='x', [0x2E]='c', [0x2F]='v', [0x30]='b',
     [0x31]='n', [0x32]='m', [0x33]=',', [0x34]='.', [0x35]='/',
-    [0x39]=' ',
+    [0x0E]='\b', [0x0F]='\t', [0x39]=' ',
 };
 
 static const char kbd_shifted[128] = {
@@ -197,7 +200,7 @@ static const char kbd_shifted[128] = {
     [0x28]='"', [0x29]='~', [0x2B]='|',
     [0x2C]='Z', [0x2D]='X', [0x2E]='C', [0x2F]='V', [0x30]='B',
     [0x31]='N', [0x32]='M', [0x33]='<', [0x34]='>', [0x35]='?',
-    [0x39]=' ',
+    [0x0E]='\b', [0x0F]='\t', [0x39]=' ',
 };
 
 /* Turkish-Q (KBDTUQ): the key left of Right Shift is '.' (shift ':'),
@@ -217,7 +220,7 @@ static const char kbd_tr_normal[128] = {
     [0x28]='i', [0x29]='"', [0x2B]=',',
     [0x2C]='z', [0x2D]='x', [0x2E]='c', [0x2F]='v', [0x30]='b',
     [0x31]='n', [0x32]='m', [0x33]='\x94', [0x34]='\x87', [0x35]='.',
-    [0x39]=' ',
+    [0x0E]='\b', [0x0F]='\t', [0x39]=' ',
 };
 
 static const char kbd_tr_shifted[128] = {
@@ -232,7 +235,7 @@ static const char kbd_tr_shifted[128] = {
     [0x28]='I', [0x29]='\x82', [0x2B]=';',
     [0x2C]='Z', [0x2D]='X', [0x2E]='C', [0x2F]='V', [0x30]='B',
     [0x31]='N', [0x32]='M', [0x33]='\x99', [0x34]='\x80', [0x35]=':',
-    [0x39]=' ',
+    [0x0E]='\b', [0x0F]='\t', [0x39]=' ',
 };
 
 void kbd_set_layout_tr(int tr) { kbd_is_tr = tr ? 1 : 0; }
@@ -243,13 +246,18 @@ static char kbd_map(unsigned char sc, int shifted) {
     return shifted ? kbd_shifted[sc] : kbd_normal[sc];
 }
 
-/* Blocking read of one char. '\n' = Enter, '\b' = Backspace. */
+/* Blocking read of one char. '\n' = Enter, '\b' = Backspace.
+ * Skips PS/2 aux (mouse) bytes: those belong to the mouse driver. */
 static char kbd_getchar(void) {
     static int shift = 0;
     static int ext = 0;
     for (;;) {
         while (!(inb(0x64) & 0x01)) {
-            __asm__ volatile ("pause"); /* spin; IRQs are off so hlt is forbidden here */
+            __asm__ volatile ("pause");
+        }
+        if (inb(0x64) & 0x20) {
+            inb(0x60); /* aux byte: leave it to mouse_irq */
+            continue;
         }
         unsigned char sc = inb(0x60);
         if (sc == 0xE0) { ext = 1; continue; }
@@ -279,13 +287,21 @@ static char kbd_getchar(void) {
 
 /* Raw key reader for div/editor: arrows, F2, Esc plus chars through the
  * active layout. Returns a char, KEY_*, K_F2 or K_ESC; sets *shift_state
- * (1 while left/right Shift is held). Extended-key releases ignored. */
+ * (1 while left/right Shift is held). Extended-key releases ignored.
+ * Returns 0 after ~25ms with no key (lets UI loops redraw for mouse).
+ * Skips PS/2 aux (mouse) bytes. */
 char div_getkey(int *shift_state) {
     static int shift = 0;
     static int ext = 0;
+    unsigned int spin = 0;
     for (;;) {
         while (!(inb(0x64) & 0x01)) {
             __asm__ volatile ("pause");
+            if (++spin > 500000) return 0;
+        }
+        if (inb(0x64) & 0x20) {
+            inb(0x60); /* aux byte: leave it to mouse_irq */
+            continue;
         }
         unsigned char sc = inb(0x60);
         if (sc == 0xE0) { ext = 1; continue; }
@@ -341,6 +357,20 @@ static unsigned int katoi(const char *s) {
     return v;
 }
 
+static unsigned char cmos_read(unsigned char reg) {
+    outb(0x70, reg);
+    return inb(0x71);
+}
+
+static unsigned char unbcd(unsigned char v) {
+    return (unsigned char)(((v >> 4) & 0xF) * 10 + (v & 0xF));
+}
+
+static void vga_print2(unsigned int v, unsigned char color) {
+    vga_putchar((char)('0' + (v / 10) % 10), color);
+    vga_putchar((char)('0' + v % 10), color);
+}
+
 /* PC speaker beep via PIT channel 2. Delay loop is uncalibrated. */
 static void pc_beep(unsigned int freq) {
     unsigned int div;
@@ -370,7 +400,7 @@ static void sys_reboot(void) {
 static void shell_cmd_help(void) {
     vga_print("commands:\n", C_GREY_ON_BLACK);
     vga_print("help  - show this list\n", C_GREY_ON_BLACK);
-    vga_print("ver   - show Diev version\n", C_GREY_ON_BLACK);
+    vga_print("ver   - show EOS version\n", C_GREY_ON_BLACK);
     vga_print("clear - clear screen\n", C_GREY_ON_BLACK);
     vga_print("ls [dir]      - list RMFS files\n", C_GREY_ON_BLACK);
     vga_print("cat <file>    - print RMFS file\n", C_GREY_ON_BLACK);
@@ -384,6 +414,12 @@ static void shell_cmd_help(void) {
     vga_print("reboot        - reboot the machine\n", C_GREY_ON_BLACK);
     vga_print("mem           - memory + RMFS usage\n", C_GREY_ON_BLACK);
     vga_print("iso           - boot CD info\n", C_GREY_ON_BLACK);
+    vga_print("exec <file>   - run an EOS program\n", C_GREY_ON_BLACK);
+    vga_print("time          - CMOS real-time clock\n", C_GREY_ON_BLACK);
+    vga_print("touch <file>  - create empty file\n", C_GREY_ON_BLACK);
+    vga_print("cp <src> <dst>- copy file\n", C_GREY_ON_BLACK);
+    vga_print("wc <file>     - count lines and bytes\n", C_GREY_ON_BLACK);
+    vga_print("eword         - EWord dictionary window\n", C_GREY_ON_BLACK);
 }
 
 /* Split "cmd rest..." in place: NUL-terminates cmd, returns ptr to rest. */
@@ -444,7 +480,7 @@ static void shell(void) {
     static char line[SHELL_MAX];
 
     for (;;) {
-        vga_print("diev> ", C_CYAN_ON_BLACK);
+        vga_print("eos> ", C_CYAN_ON_BLACK);
         unsigned int len = 0;
         for (;;) {
             char c = kbd_getchar();
@@ -479,11 +515,105 @@ static void shell(void) {
         if (kstrcmp(line, "help") == 0) {
             shell_cmd_help();
         } else if (kstrcmp(line, "ver") == 0) {
-            vga_print(DIEV_VER " - GPLv3 hobby OS\n", C_GREY_ON_BLACK);
+            vga_print(EOS_VER " - GPLv3 hobby OS\n", C_GREY_ON_BLACK);
         } else if (kstrcmp(line, "clear") == 0) {
             vga_clear();
         } else if (kstrcmp(line, "crash") == 0) {
-            __asm__ volatile ("ud2"); /* invalid opcode -> DIEV ERR E4 via IDT */
+            __asm__ volatile ("ud2"); /* invalid opcode -> EOS ERR E4 via IDT */
+        } else if (kstrcmp(line, "exec") == 0) {
+            /* Run a flat EOS program from RMFS at 0x20000 ("EOS" magic).
+               Callee preserves EBX ESI EDI EBP, prints on rows 10+. */
+            if (*rest == 0) {
+                vga_print("usage: exec <file>\n", C_RED_ON_BLACK);
+            } else {
+                int n = rmfs_read(rest, (char *)0x20000, RMFS_MAX_SIZE);
+                if (n < 4) {
+                    vga_print("no such file: ", C_RED_ON_BLACK);
+                    vga_print(rest, C_RED_ON_BLACK);
+                    vga_putchar('\n', C_RED_ON_BLACK);
+                } else if (*(unsigned int *)0x20000 != 0x21534F45) {
+                    vga_print("bad magic (not an EOS program)\n", C_RED_ON_BLACK);
+                } else {
+                    ((void (*)(void))0x20004)();
+                }
+            }
+        } else if (kstrcmp(line, "time") == 0) {
+            unsigned char st = cmos_read(0x0B);
+            unsigned char s = cmos_read(0x00), m = cmos_read(0x02);
+            unsigned char h = cmos_read(0x04), day = cmos_read(0x07);
+            unsigned char mon = cmos_read(0x08), yr = cmos_read(0x09);
+            if (!(st & 4)) {
+                s = unbcd(s); m = unbcd(m); h = unbcd(h);
+                day = unbcd(day); mon = unbcd(mon); yr = unbcd(yr);
+            }
+            vga_print2(h, C_GREY_ON_BLACK);
+            vga_putchar(':', C_GREY_ON_BLACK);
+            vga_print2(m, C_GREY_ON_BLACK);
+            vga_putchar(':', C_GREY_ON_BLACK);
+            vga_print2(s, C_GREY_ON_BLACK);
+            vga_putchar(' ', C_GREY_ON_BLACK);
+            vga_print("20", C_GREY_ON_BLACK);
+            vga_print2(yr, C_GREY_ON_BLACK);
+            vga_putchar('-', C_GREY_ON_BLACK);
+            vga_print2(mon, C_GREY_ON_BLACK);
+            vga_putchar('-', C_GREY_ON_BLACK);
+            vga_print2(day, C_GREY_ON_BLACK);
+            vga_putchar('\n', C_GREY_ON_BLACK);
+        } else if (kstrcmp(line, "touch") == 0) {
+            if (*rest == 0) {
+                vga_print("usage: touch <file>\n", C_RED_ON_BLACK);
+            } else if (rmfs_read(rest, shell_iobuf, 0) >= 0) {
+                vga_print("already exists\n", C_GREY_ON_BLACK);
+            } else if (rmfs_write(rest, "", 0) == 0) {
+                vga_print("created ", C_GREY_ON_BLACK);
+                vga_print(rest, C_GREY_ON_BLACK);
+                vga_putchar('\n', C_GREY_ON_BLACK);
+            } else {
+                vga_print("bad file name\n", C_RED_ON_BLACK);
+            }
+        } else if (kstrcmp(line, "cp") == 0) {
+            char *src = rest;
+            char *dst = shell_split(rest);
+            if (*src == 0 || *dst == 0) {
+                vga_print("usage: cp <src> <dst>\n", C_RED_ON_BLACK);
+            } else {
+                int n = rmfs_read(src, shell_iobuf, RMFS_MAX_SIZE);
+                if (n < 0) {
+                    vga_print("no such file: ", C_RED_ON_BLACK);
+                    vga_print(src, C_RED_ON_BLACK);
+                    vga_putchar('\n', C_RED_ON_BLACK);
+                } else if (rmfs_write(dst, shell_iobuf, (unsigned int)n) == 0) {
+                    vga_print("copied ", C_GREY_ON_BLACK);
+                    vga_print_uint((unsigned int)n, C_GREY_ON_BLACK);
+                    vga_print(" bytes\n", C_GREY_ON_BLACK);
+                } else {
+                    vga_print("copy failed (full? bad name?)\n", C_RED_ON_BLACK);
+                }
+            }
+        } else if (kstrcmp(line, "wc") == 0) {
+            if (*rest == 0) {
+                vga_print("usage: wc <file>\n", C_RED_ON_BLACK);
+            } else {
+                int n = rmfs_read(rest, shell_iobuf, RMFS_MAX_SIZE);
+                if (n < 0) {
+                    vga_print("no such file: ", C_RED_ON_BLACK);
+                    vga_print(rest, C_RED_ON_BLACK);
+                    vga_putchar('\n', C_RED_ON_BLACK);
+                } else {
+                    unsigned int lines = 0;
+                    for (int i = 0; i < n; i++)
+                        if (shell_iobuf[i] == '\n') lines++;
+                    vga_print_uint(lines, C_GREY_ON_BLACK);
+                    vga_putchar(' ', C_GREY_ON_BLACK);
+                    vga_print_uint((unsigned int)n, C_GREY_ON_BLACK);
+                    vga_putchar(' ', C_GREY_ON_BLACK);
+                    vga_print(rest, C_GREY_ON_BLACK);
+                    vga_putchar('\n', C_GREY_ON_BLACK);
+                }
+            }
+        } else if (kstrcmp(line, "eword") == 0) {
+            eword_open();
+            vga_clear();
         } else if (kstrcmp(line, "div") == 0) {
             div_strip(rest);
             if (*rest == 0) {
@@ -618,34 +748,36 @@ static void shell(void) {
     }
 }
 
-static void diev_selftest(void) {
+static void eos_selftest(void) {
     /* Minimal sanity checks; any failure -> one of the 5 errors. */
     if ((unsigned int)vga != VGA_ADDR)
-        diev_panic(DIEV_E3_VGA);
-    if (kstrlen("Diev") != 4)
-        diev_panic(DIEV_E4_EXCEPTION);
+        eos_panic(EOS_E3_VGA);
+    if (kstrlen("EOS") != 3)
+        eos_panic(EOS_E4_EXCEPTION);
 }
 
 void kernel_main(void) {
-    diev_selftest();
+    eos_selftest();
     idt_install();
     boot_drive = 0xFF;
     __asm__ volatile ("movb %1, %0" : "=r"(boot_drive) : "m"(*(volatile unsigned char *)0x500));
 
-    /* Bootloader already showed "Diev loading..." on row 0. */
+    /* Bootloader already showed "EOS loading..." on row 0. */
     cursor_row = 1;
     cursor_col = 0;
     vga_print("hello world!", C_GREEN_ON_BLACK);
     vga_putchar('\n', C_GREEN_ON_BLACK);
-    vga_print(DIEV_VER " - shell inside. Type 'help'.", C_GREY_ON_BLACK);
+    vga_print(EOS_VER " - shell inside. Type 'help'.", C_GREY_ON_BLACK);
     vga_putchar('\n', C_GREY_ON_BLACK);
 
     rmfs_init();
-    rmfs_write("diev/test.txt", "hi from RMFS", 12);
-    rmfs_write("diev/readme.txt", "RMFS keeps files in RAM.", 24);
+    rmfs_write("eos/test.txt", "hi from RMFS", 12);
+    rmfs_write("eos/readme.txt", "RMFS keeps files in RAM.", 24);
     rmfs_write("hello.txt", "hello world!", 12);
+    rmfs_write("demo", (const char *)demo_prog, demo_prog_len);
+    mouse_init(); /* PIC remap + PS/2 mouse + sti (continues without one) */
 
     shell(); /* never returns */
 
-    diev_panic(DIEV_E5_HALT);
+    eos_panic(EOS_E5_HALT);
 }

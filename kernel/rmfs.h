@@ -1,13 +1,13 @@
-/* Diev OS - RMFS: tiny filesystem living purely in RAM.
- * Copyright (C) 2026 Diev contributors
+/* EOS OS - RMFS: tiny filesystem living purely in RAM.
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
  *
  * No disk, no allocator: a fixed table of files in .bss (zeroed at boot).
  * Everything is lost on reboot. That is the point.
  */
-#ifndef DIEV_RMFS_H
-#define DIEV_RMFS_H
+#ifndef EOS_RMFS_H
+#define EOS_RMFS_H
 
 #define RMFS_MAX_FILES 16
 #define RMFS_MAX_NAME  32

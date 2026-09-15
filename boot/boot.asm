@@ -1,8 +1,8 @@
-; Diev OS - Stage 1 Bootloader (512 bytes, BIOS)
-; Copyright (C) 2026 Diev contributors
+; EOS OS - Stage 1 Bootloader (512 bytes, BIOS)
+; Copyright (C) 2026 EOS contributors
 ; SPDX-License-Identifier: GPL-3.0-or-later
 ; See LICENSE for details.
-; Prints "Diev loading...", copies the kernel from the boot image to
+; Prints "EOS loading...", copies the kernel from the boot image to
 ; 0x1000, then enters 32-bit protected mode.
 ; El Torito no-emulation boot loads boot.bin + kernel.bin to 0x7C00,
 ; so no disk reads are needed at all: plain memcpy. DL (boot drive)
@@ -29,7 +29,7 @@ start:
     int 0x10
 
     mov si, msg_loading
-    call print_string               ; "Diev loading..." at row 0
+    call print_string               ; "EOS loading..." at row 0
 
     ; --- Copy kernel 0x7E00 -> 0x1000 (71 sectors = 36352 bytes) ---
     ; Forward copy is safe: dest (0x1000) < src (0x7E00), same stride,
@@ -81,7 +81,7 @@ print_string:                       ; DS:SI = zero-terminated string
     ret
 
 ; ---------------- Data ----------------
-msg_loading db "Diev loading...", 13, 10, 0
+msg_loading db "EOS loading...", 13, 10, 0
 boot_drive  db 0
 
 align 4

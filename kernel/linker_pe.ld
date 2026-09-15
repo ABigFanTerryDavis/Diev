@@ -1,5 +1,5 @@
-/* Diev OS PE linker script (Windows/MinGW fallback).
- * Copyright (C) 2026 Diev contributors
+/* EOS OS PE linker script (Windows/MinGW fallback).
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Merges everything into one contiguous section at 0x1000 so that
  * objcopy -O binary yields a flat kernel bootable at 0x1000.

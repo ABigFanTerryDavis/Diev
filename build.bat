@@ -1,5 +1,5 @@
 @echo off
-REM Diev OS - build script (Windows, Ninja + CMake)
+REM EOS OS - build script (Windows, Ninja + CMake)
 setlocal
 cd /d "%~dp0"
 cmake -B build -G Ninja

@@ -1,5 +1,5 @@
-/* Diev OS - RMFS implementation.
- * Copyright (C) 2026 Diev contributors
+/* EOS OS - RMFS implementation.
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
  */

@@ -1,5 +1,5 @@
-/* Diev OS - div browser, viewer and editor implementation.
- * Copyright (C) 2026 Diev contributors
+/* EOS OS - div browser, viewer and editor implementation.
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
  */
@@ -49,7 +49,7 @@ static void dcopy(char *dst, const char *src, unsigned int max) {
 }
 
 /* --- entry collection --- */
-static char div_dir[DIV_MAX_PATH]; /* "" = root, else "diev" (no trailing /) */
+static char div_dir[DIV_MAX_PATH]; /* "" = root, else "eos" (no trailing /) */
 
 static void div_add(const char *name, const char *path, int is_dir, unsigned int size) {
     if (is_dir) {
@@ -66,7 +66,7 @@ static void div_add(const char *name, const char *path, int is_dir, unsigned int
 }
 
 static void div_collect_one(const char *name, unsigned int size) {
-    /* name = full RMFS path, e.g. "diev/test.txt" */
+    /* name = full RMFS path, e.g. "eos/test.txt" */
     unsigned int dl = dlen(div_dir);
     if (dl == 0) {
         /* root: bare files show directly, "x/..." becomes folder "x" */

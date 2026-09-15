@@ -1,10 +1,10 @@
-/* Diev OS - shared kernel API.
- * Copyright (C) 2026 Diev contributors
+/* EOS OS - shared kernel API.
+ * Copyright (C) 2026 EOS contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  * See LICENSE for details.
  */
-#ifndef DIEV_KERNEL_H
-#define DIEV_KERNEL_H
+#ifndef EOS_KERNEL_H
+#define EOS_KERNEL_H
 
 /* VGA colors */
 #define C_GREY_ON_BLACK 0x07
@@ -22,14 +22,14 @@
 #define K_F2      ((char)0x95)
 #define K_ESC     ((char)0x9B)
 
-/* --- Diev 5 errors --- */
+/* --- EOS 5 errors --- */
 typedef enum {
-    DIEV_E1_DISK = 1,     /* boot disk / kernel load failure */
-    DIEV_E2_KERNEL = 2,   /* kernel integrity / entry failure */
-    DIEV_E3_VGA = 3,      /* VGA / display fault */
-    DIEV_E4_EXCEPTION = 4,/* unknown exception / unexpected state */
-    DIEV_E5_HALT = 5      /* unrecoverable halt fault */
-} diev_error_t;
+    EOS_E1_DISK = 1,     /* boot disk / kernel load failure */
+    EOS_E2_KERNEL = 2,   /* kernel integrity / entry failure */
+    EOS_E3_VGA = 3,      /* VGA / display fault */
+    EOS_E4_EXCEPTION = 4,/* unknown exception / unexpected state */
+    EOS_E5_HALT = 5      /* unrecoverable halt fault */
+} eos_error_t;
 
 void vga_putchar(char c, unsigned char color);
 void vga_print(const char *s, unsigned char color);
@@ -37,7 +37,7 @@ void vga_print_uint(unsigned int v, unsigned char color);
 void vga_print_hex(unsigned int v, unsigned char color);
 void vga_clear(void);
 void vga_set_cursor(unsigned char row, unsigned char col);
-void diev_panic(diev_error_t code);
+void eos_panic(eos_error_t code);
 
 /* Keyboard layouts (us default, tr = Turkish-Q) + raw reader for div. */
 void kbd_set_layout_tr(int tr);

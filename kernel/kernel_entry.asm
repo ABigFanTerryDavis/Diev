@@ -1,5 +1,5 @@
-; Diev OS - Kernel entry (32-bit)
-; Copyright (C) 2026 Diev contributors
+; EOS OS - Kernel entry (32-bit)
+; Copyright (C) 2026 EOS contributors
 ; SPDX-License-Identifier: GPL-3.0-or-later
 ; See LICENSE for details.
 ; Sets up stack and calls kernel_main.
