@@ -1,0 +1,8 @@
+# Diev OS - git ignore
+build/
+*.ppm
+*.o
+*.pe
+*.elf
+*.bin
+*.img
